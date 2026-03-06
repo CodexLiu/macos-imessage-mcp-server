@@ -63,6 +63,9 @@ type ResolvedParticipant = {
   contactName: string | null;
 };
 
+type ChatSummary = ReturnType<typeof formatChatSummary>;
+type FormattedMessage = ReturnType<typeof formatMessage>;
+
 function getErrorMessage(error: unknown): string {
   if (error instanceof Error) return error.message;
   if (typeof error === "string") return error;
@@ -159,6 +162,7 @@ function decodeAttributedBodyHex(hex: string | null | undefined): string | null 
         ![
           "streamtype",
           "streamtyped",
+          "NSMutableString",
           "NSAttributedString",
           "NSObject",
           "NSString",
@@ -185,6 +189,10 @@ async function getAllContacts(): Promise<ContactRecord[]> {
 
 async function searchContacts(query: string): Promise<ContactRecord[]> {
   return JSON.parse(await runContactsHelper(["search", query])) as ContactRecord[];
+}
+
+function uniqueStrings(values: string[]): string[] {
+  return [...new Set(values.filter(Boolean))];
 }
 
 async function buildContactIndex(): Promise<Map<string, string>> {
@@ -452,6 +460,89 @@ async function searchMessages(query: string, limit: number) {
     .slice(0, limit);
 }
 
+async function getUnreadChats(limit: number) {
+  const chats = await listChats(Math.max(limit * 3, 50), "", false);
+  return chats.filter((chat) => chat.unreadCount > 0).slice(0, limit);
+}
+
+async function searchChats(query: string, limit: number) {
+  const [directMatches, contactMatches] = await Promise.all([
+    listChats(limit, query, false),
+    getChatByContact(query, limit),
+  ]);
+
+  const seen = new Set<number>();
+  const merged = [...directMatches, ...contactMatches].filter((chat) => {
+    if (seen.has(chat.chatId)) return false;
+    seen.add(chat.chatId);
+    return true;
+  });
+
+  return merged
+    .sort((left, right) => {
+      const leftTime = left.lastMessageAt ? Date.parse(left.lastMessageAt) : 0;
+      const rightTime = right.lastMessageAt ? Date.parse(right.lastMessageAt) : 0;
+      return rightTime - leftTime;
+    })
+    .slice(0, limit);
+}
+
+async function getChatByContact(query: string, limit: number) {
+  const contacts = await searchContacts(query);
+  const identifiers = uniqueStrings(
+    contacts.flatMap((contact) => [...contact.phones, ...contact.emails])
+  );
+
+  const chats = await listChats(200, "", false);
+  const normalizedIdentifiers = new Set(identifiers.map(normalizeIdentifier));
+  const matchedChats = chats.filter((chat) => {
+    if (chat.preferredName?.toLowerCase().includes(query.toLowerCase())) {
+      return true;
+    }
+
+    return chat.participants.some((participant) =>
+      normalizedIdentifiers.has(normalizeIdentifier(participant.identifier))
+    );
+  });
+
+  return matchedChats.slice(0, limit);
+}
+
+async function getLatestMessageForContact(query: string) {
+  const chats = await getChatByContact(query, 10);
+  if (!chats.length) {
+    return null;
+  }
+
+  const messages = await Promise.all(
+    chats.map(async (chat) => {
+      const results = await readChat(1, chat.chatId, null);
+      return results[0] ?? null;
+    })
+  );
+
+  return messages
+    .filter((message): message is FormattedMessage => Boolean(message))
+    .sort((left, right) => {
+      const leftTime = left.sentAt ? Date.parse(left.sentAt) : 0;
+      const rightTime = right.sentAt ? Date.parse(right.sentAt) : 0;
+      return rightTime - leftTime;
+    })[0] ?? null;
+}
+
+async function resolveRecipient(query: string) {
+  const contacts = await searchContacts(query);
+  const chats = await getChatByContact(query, 10);
+
+  return {
+    contacts,
+    chats,
+    suggestedIdentifiers: uniqueStrings(
+      contacts.flatMap((contact) => [...contact.phones, ...contact.emails])
+    ),
+  };
+}
+
 function ensureReadOnlySql(sql: string): string {
   const normalized = sql.trim().replace(/;+$/, "");
   const lowered = normalized.toLowerCase();
@@ -567,6 +658,62 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
         properties: {
           query: { type: "string" },
           limit: { type: "number" },
+        },
+        required: ["query"],
+      },
+    },
+    {
+      name: "get_unread_chats",
+      description: "List chats with unread messages",
+      inputSchema: {
+        type: "object",
+        properties: {
+          limit: { type: "number" },
+        },
+      },
+    },
+    {
+      name: "search_chats",
+      description: "Search chats by contact name, participant identifier, or chat identifier",
+      inputSchema: {
+        type: "object",
+        properties: {
+          query: { type: "string" },
+          limit: { type: "number" },
+        },
+        required: ["query"],
+      },
+    },
+    {
+      name: "get_chat_by_contact",
+      description: "Find chats associated with a contact search query",
+      inputSchema: {
+        type: "object",
+        properties: {
+          query: { type: "string" },
+          limit: { type: "number" },
+        },
+        required: ["query"],
+      },
+    },
+    {
+      name: "get_latest_message_for_contact",
+      description: "Get the latest message from the most recent chat matching a contact query",
+      inputSchema: {
+        type: "object",
+        properties: {
+          query: { type: "string" },
+        },
+        required: ["query"],
+      },
+    },
+    {
+      name: "resolve_recipient",
+      description: "Resolve a person-like query into matching contacts, chats, and identifiers",
+      inputSchema: {
+        type: "object",
+        properties: {
+          query: { type: "string" },
         },
         required: ["query"],
       },
@@ -715,6 +862,99 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       } catch (error) {
         return {
           content: [{ type: "text", text: `Message search failed: ${getErrorMessage(error)}` }],
+          isError: true,
+        };
+      }
+    }
+
+    case "get_unread_chats": {
+      try {
+        const limit = normalizeLimit(request.params.arguments?.limit, 20, 100);
+        return {
+          content: [{ type: "text", text: JSON.stringify(await getUnreadChats(limit)) }],
+        };
+      } catch (error) {
+        return {
+          content: [{ type: "text", text: `Unread chat lookup failed: ${getErrorMessage(error)}` }],
+          isError: true,
+        };
+      }
+    }
+
+    case "search_chats": {
+      const query = String(request.params.arguments?.query ?? "").trim();
+      if (!query) {
+        throw new Error("query is required");
+      }
+
+      try {
+        const limit = normalizeLimit(request.params.arguments?.limit, 20, 100);
+        return {
+          content: [{ type: "text", text: JSON.stringify(await searchChats(query, limit)) }],
+        };
+      } catch (error) {
+        return {
+          content: [{ type: "text", text: `Chat search failed: ${getErrorMessage(error)}` }],
+          isError: true,
+        };
+      }
+    }
+
+    case "get_chat_by_contact": {
+      const query = String(request.params.arguments?.query ?? "").trim();
+      if (!query) {
+        throw new Error("query is required");
+      }
+
+      try {
+        const limit = normalizeLimit(request.params.arguments?.limit, 20, 100);
+        return {
+          content: [{ type: "text", text: JSON.stringify(await getChatByContact(query, limit)) }],
+        };
+      } catch (error) {
+        return {
+          content: [{ type: "text", text: `Contact chat lookup failed: ${getErrorMessage(error)}` }],
+          isError: true,
+        };
+      }
+    }
+
+    case "get_latest_message_for_contact": {
+      const query = String(request.params.arguments?.query ?? "").trim();
+      if (!query) {
+        throw new Error("query is required");
+      }
+
+      try {
+        return {
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify(await getLatestMessageForContact(query)),
+            },
+          ],
+        };
+      } catch (error) {
+        return {
+          content: [{ type: "text", text: `Latest contact message lookup failed: ${getErrorMessage(error)}` }],
+          isError: true,
+        };
+      }
+    }
+
+    case "resolve_recipient": {
+      const query = String(request.params.arguments?.query ?? "").trim();
+      if (!query) {
+        throw new Error("query is required");
+      }
+
+      try {
+        return {
+          content: [{ type: "text", text: JSON.stringify(await resolveRecipient(query)) }],
+        };
+      } catch (error) {
+        return {
+          content: [{ type: "text", text: `Recipient resolution failed: ${getErrorMessage(error)}` }],
           isError: true,
         };
       }
