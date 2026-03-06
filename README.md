@@ -1,4 +1,11 @@
+![macOS iMessage MCP Server banner](./assets/banner.svg)
+
 # macOS iMessage MCP Server
+
+[![Platform](https://img.shields.io/badge/platform-macOS-111827?style=for-the-badge&logo=apple)](https://www.apple.com/macos/)
+[![Transport](https://img.shields.io/badge/MCP-stdio-34C759?style=for-the-badge)](https://modelcontextprotocol.io/)
+[![Messages](https://img.shields.io/badge/messages-local%20access-0B3B2E?style=for-the-badge)](#quickstart)
+[![Build](https://img.shields.io/badge/build-npm%20run%20build-1F2937?style=for-the-badge)](#quickstart)
 
 Local MCP server for macOS Messages.
 

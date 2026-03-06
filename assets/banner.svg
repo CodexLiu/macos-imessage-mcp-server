@@ -1,0 +1,35 @@
+<svg width="1280" height="320" viewBox="0 0 1280 320" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="macOS iMessage MCP Server banner">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1280" y2="320" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#0F172A"/>
+      <stop offset="0.55" stop-color="#0B3B2E"/>
+      <stop offset="1" stop-color="#34C759"/>
+    </linearGradient>
+    <linearGradient id="bubble" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#E8FFF0"/>
+      <stop offset="1" stop-color="#B4F2C6"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="1280" height="320" rx="28" fill="url(#bg)"/>
+  <circle cx="1080" cy="88" r="132" fill="#FFFFFF" fill-opacity="0.06"/>
+  <circle cx="1180" cy="248" r="96" fill="#FFFFFF" fill-opacity="0.05"/>
+  <circle cx="980" cy="272" r="72" fill="#FFFFFF" fill-opacity="0.04"/>
+
+  <g transform="translate(72 72)">
+    <path d="M0 48C0 21.49 21.49 0 48 0H212C238.51 0 260 21.49 260 48V112C260 138.51 238.51 160 212 160H96L26 214L45 160H48C21.49 160 0 138.51 0 112V48Z" fill="url(#bubble)"/>
+    <circle cx="76" cy="80" r="12" fill="#34C759"/>
+    <circle cx="130" cy="80" r="12" fill="#34C759"/>
+    <circle cx="184" cy="80" r="12" fill="#34C759"/>
+  </g>
+
+  <text x="380" y="122" fill="white" font-family="SF Pro Display, Inter, Helvetica, Arial, sans-serif" font-size="46" font-weight="700" letter-spacing="-0.02em">
+    macOS iMessage MCP Server
+  </text>
+  <text x="380" y="172" fill="#D1FAE5" font-family="SF Pro Text, Inter, Helvetica, Arial, sans-serif" font-size="24" font-weight="500">
+    Local chat access, contact resolution, and iMessage sending for macOS
+  </text>
+  <text x="380" y="214" fill="#A7F3D0" font-family="SF Mono, Menlo, Monaco, monospace" font-size="18">
+    Contacts.framework + chat.db + AppleScript send path
+  </text>
+</svg>
