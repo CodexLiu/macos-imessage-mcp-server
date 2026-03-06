@@ -595,146 +595,222 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
   tools: [
     {
       name: "search_contacts",
-      description: "Search contacts by name, phone, or email",
+      description:
+        "Resolve a person or identifier against local contacts. Use this before sending a message or when a user refers to someone by name instead of exact phone/email.",
       inputSchema: {
         type: "object",
         properties: {
-          query: { type: "string" },
+          query: {
+            type: "string",
+            description: "Name, phone number, or email fragment to search for.",
+          },
         },
         required: ["query"],
       },
     },
     {
       name: "send_imessage",
-      description: "Send an iMessage using the local Messages app",
+      description:
+        "Send an iMessage through the local Messages app. Use a resolved phone number or email as the recipient.",
       inputSchema: {
         type: "object",
         properties: {
-          recipient: { type: "string" },
-          message: { type: "string" },
+          recipient: {
+            type: "string",
+            description: "Exact phone number or email to message.",
+          },
+          message: {
+            type: "string",
+            description: "Plain text message body to send.",
+          },
         },
         required: ["recipient", "message"],
       },
     },
     {
       name: "list_chats",
-      description: "List recent chats from the local Messages database",
+      description:
+        "Inbox-style chat listing from the local Messages database. Use this to discover recent conversations, contact-resolved names, unread counts, and the latest message per chat.",
       inputSchema: {
         type: "object",
         properties: {
-          limit: { type: "number" },
-          query: { type: "string" },
-          includeArchived: { type: "boolean" },
+          limit: {
+            type: "number",
+            description: "Maximum number of chats to return. Defaults to 20, max 100.",
+          },
+          query: {
+            type: "string",
+            description: "Optional raw filter against chat identifiers and participant identifiers.",
+          },
+          includeArchived: {
+            type: "boolean",
+            description: "Include archived chats when true. Defaults to false.",
+          },
         },
       },
     },
     {
       name: "read_chat",
-      description: "Read messages from a chat by chatId or chatIdentifier",
+      description:
+        "Read recent messages from a specific chat. Prefer chatId from list_chats when available; chatIdentifier is a fallback for direct phone/email based lookup.",
       inputSchema: {
         type: "object",
         properties: {
-          chatId: { type: "number" },
-          chatIdentifier: { type: "string" },
-          limit: { type: "number" },
+          chatId: {
+            type: "number",
+            description: "Internal chat ID returned by list_chats.",
+          },
+          chatIdentifier: {
+            type: "string",
+            description: "Phone number or email identifying the chat if chatId is not available.",
+          },
+          limit: {
+            type: "number",
+            description: "Maximum number of messages to return. Defaults to 20, max 100.",
+          },
         },
       },
     },
     {
       name: "get_latest_messages",
-      description: "Get a global latest-messages feed across chats",
+      description:
+        "Return a global latest-messages feed across all chats. Use this when the user asks what happened most recently without naming a specific chat.",
       inputSchema: {
         type: "object",
         properties: {
-          limit: { type: "number" },
+          limit: {
+            type: "number",
+            description: "Maximum number of messages to return. Defaults to 20, max 100.",
+          },
         },
       },
     },
     {
       name: "search_messages",
-      description: "Search recent messages by text, sender, or chat identifier",
+      description:
+        "Search recent messages by text, sender, chat identifier, or chat display name. Use this for content-oriented queries such as finding a phrase or topic.",
       inputSchema: {
         type: "object",
         properties: {
-          query: { type: "string" },
-          limit: { type: "number" },
+          query: {
+            type: "string",
+            description: "Message text or identifier fragment to search for.",
+          },
+          limit: {
+            type: "number",
+            description: "Maximum number of results to return. Defaults to 20, max 100.",
+          },
         },
         required: ["query"],
       },
     },
     {
       name: "get_unread_chats",
-      description: "List chats with unread messages",
+      description:
+        "List chats that appear to contain unread messages. Use this for inbox triage or when the user asks what still needs attention.",
       inputSchema: {
         type: "object",
         properties: {
-          limit: { type: "number" },
+          limit: {
+            type: "number",
+            description: "Maximum number of unread chats to return. Defaults to 20, max 100.",
+          },
         },
       },
     },
     {
       name: "search_chats",
-      description: "Search chats by contact name, participant identifier, or chat identifier",
+      description:
+        "Search chats in a human-oriented way. This includes raw chat matching plus contact-name resolution, so it is better than list_chats query filtering for person-like prompts.",
       inputSchema: {
         type: "object",
         properties: {
-          query: { type: "string" },
-          limit: { type: "number" },
+          query: {
+            type: "string",
+            description: "Person name, phone number, email, or chat identifier fragment.",
+          },
+          limit: {
+            type: "number",
+            description: "Maximum number of chats to return. Defaults to 20, max 100.",
+          },
         },
         required: ["query"],
       },
     },
     {
       name: "get_chat_by_contact",
-      description: "Find chats associated with a contact search query",
+      description:
+        "Resolve a contact-like query to one or more chats. Use this when a person may have multiple channels such as iMessage, SMS, or RCS.",
       inputSchema: {
         type: "object",
         properties: {
-          query: { type: "string" },
-          limit: { type: "number" },
+          query: {
+            type: "string",
+            description: "Name, phone, or email fragment describing the person.",
+          },
+          limit: {
+            type: "number",
+            description: "Maximum number of chats to return. Defaults to 20, max 100.",
+          },
         },
         required: ["query"],
       },
     },
     {
       name: "get_latest_message_for_contact",
-      description: "Get the latest message from the most recent chat matching a contact query",
+      description:
+        "Get the latest message from the most recent chat associated with a contact-like query. Use this for questions like 'what did Silvia say last?'",
       inputSchema: {
         type: "object",
         properties: {
-          query: { type: "string" },
+          query: {
+            type: "string",
+            description: "Name, phone, or email fragment describing the person.",
+          },
         },
         required: ["query"],
       },
     },
     {
       name: "resolve_recipient",
-      description: "Resolve a person-like query into matching contacts, chats, and identifiers",
+      description:
+        "Resolve a person-like query into candidate contacts, related chats, and suggested identifiers. Use this before send_imessage when the recipient is ambiguous.",
       inputSchema: {
         type: "object",
         properties: {
-          query: { type: "string" },
+          query: {
+            type: "string",
+            description: "Name, phone, or email fragment to resolve.",
+          },
         },
         required: ["query"],
       },
     },
     {
       name: "get_messages_db_schema",
-      description: "Inspect the Messages sqlite schema, optionally for one table",
+      description:
+        "Inspect the Messages sqlite schema. This is a power-user and debugging tool for understanding available tables and columns.",
       inputSchema: {
         type: "object",
         properties: {
-          table: { type: "string" },
+          table: {
+            type: "string",
+            description: "Optional table name to inspect. If omitted, returns the full schema.",
+          },
         },
       },
     },
     {
       name: "query_messages_db",
-      description: "Run a read-only SQL query against the local Messages database",
+      description:
+        "Run a read-only SQL query against the local Messages database. Prefer higher-level tools first; use this only when you need custom inspection or debugging.",
       inputSchema: {
         type: "object",
         properties: {
-          sql: { type: "string" },
+          sql: {
+            type: "string",
+            description: "Read-only SQL query. SELECT, WITH, EXPLAIN, and schema PRAGMA queries are allowed.",
+          },
         },
         required: ["sql"],
       },
